@@ -1,6 +1,9 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StrictData        #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE StrictData        #-}
 
 module Data.Text.FixWhitespace
   ( CheckResult(..)
@@ -27,6 +30,8 @@ import qualified Data.Text.IO                      as Text  {- Strict IO -}
 import           System.IO                         ( IOMode(ReadMode), hSetEncoding, utf8, withFile )
 
 import           Data.List.Extra.Drop              ( dropWhileEnd1, dropWhile1 )
+import           Control.DeepSeq
+import           GHC.Generics (Generic)
 
 type Verbose = Bool
 type TabSize = Int
@@ -51,6 +56,7 @@ data CheckResult
 -- | Represents a line of input violating whitespace rules.
 --   Stores the index of the line and the line itself.
 data LineError = LineError Int Text
+  deriving (Generic, NFData)
 
 -- | Check a file against the whitespace policy,
 --   returning a fix if violations occurred.
@@ -64,7 +70,7 @@ checkFile tabSize verbose f =
       let (s', lvs)
             | verbose   = transformWithLog tabSize s
             | otherwise = (transform tabSize s, [])
-      return $ if s' == s then CheckOK else CheckViolation s' lvs
+      return $ if s' == s then CheckOK else CheckViolation s' (force lvs)
 
 transform
   :: TabSize   -- ^ Expand tab characters to so many spaces.  Keep tabs if @<= 0@.
