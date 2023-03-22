@@ -209,7 +209,7 @@ fix mode verbose tabSize f =
       return False
 
     CheckViolation s vs ->  do
-      hPutStrLn stderr (msg vs)
+      Text.hPutStrLn stderr (msg vs)
       when (mode == Fix) $
         withFile f WriteMode $ \h -> do
           hSetEncoding h utf8
@@ -224,9 +224,11 @@ fix mode verbose tabSize f =
   where
     msg vs
       | mode == Fix =
-        "[ Violation fixed ] " ++ f
+        "[ Violation fixed ] " <> ft
 
       | otherwise =
-        "[ Violation detected ] " ++ f ++
+        "[ Violation detected ] " <> ft <>
         (if not verbose then "" else
-           ":\n" ++ unlines (map (Text.unpack . displayLineError f) vs))
+           ":\n" <> Text.unlines (map (displayLineError ft) vs))
+
+    ft = Text.pack f

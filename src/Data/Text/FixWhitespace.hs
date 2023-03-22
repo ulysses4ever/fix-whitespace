@@ -1,5 +1,6 @@
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StrictData        #-}
 
 module Data.Text.FixWhitespace
   ( CheckResult(..)
@@ -142,9 +143,9 @@ addSpaces n = (replicate n ' ' ++)
 
 -- | Print a erroneous line with 'visibleSpaces'.
 --
-displayLineError :: FilePath -> LineError -> Text
+displayLineError :: Text -> LineError -> Text
 displayLineError fname (LineError i l) = Text.concat
-  [ Text.pack fname
+  [ fname
   , ":"
   , Text.pack $ show i
   , ": "
