@@ -21,7 +21,7 @@ import           System.IO                    ( IOMode(WriteMode), hPutStr, hPut
 import           Text.Read                    ( readMaybe )
 
 import           Data.Text.FixWhitespace      ( CheckResult(CheckOK, CheckViolation, CheckIOError), checkFile, displayLineError
-                                              , TabSize, Verbose, defaultTabSize )
+                                              , TabSize, Verbose, defaultTabSize, LineError(LineError) )
 
 import           ParseConfig                  ( Config(Config), parseConfig )
 import qualified Paths_fix_whitespace         as PFW ( version )
@@ -200,13 +200,10 @@ main = do
   when (or changes && mode == Check) exitFailure
 
 fix :: Mode -> Verbose -> TabSize -> FilePath -> IO Bool
-fix mode verbose tabSize f =
-  checkFile tabSize verbose f >>= \case
-
-    CheckOK -> do
-      when verbose $
-        putStrLn $ "[ Checked ] " ++ f
-      return False
+fix mode verbose tabSize f = do
+  s <- Text.readFile f
+  pure (CheckViolation s (buildVs s))
+    >>= \case
 
     CheckViolation s vs ->  do
       Text.hPutStrLn stderr (msg vs)
@@ -216,12 +213,8 @@ fix mode verbose tabSize f =
           Text.hPutStr h s
       return True
 
-    CheckIOError _e -> do
-      hPutStrLn stderr $
-        "[ Read error ] " ++ f
-      return False
-
   where
+    buildVs = zipWith LineError [1..] . Text.lines
     msg vs
       | mode == Fix =
         "[ Violation fixed ] " <> ft
