@@ -26,6 +26,9 @@ import           Data.Char                         ( GeneralCategory(Space, Form
 import           Data.Text                         ( Text )
 import qualified Data.Text                         as Text
 import qualified Data.Text.IO                      as Text  {- Strict IO -}
+import           Data.Text.Lazy.Builder            ( Builder )
+import qualified Data.Text.Lazy.Builder            as TextBuilder
+import qualified Data.Text.Lazy.Builder.Int        as TextBuilder
 
 import           System.IO                         ( IOMode(ReadMode), hSetEncoding, utf8, withFile )
 
@@ -149,22 +152,28 @@ addSpaces n = (replicate n ' ' ++)
 
 -- | Print a erroneous line with 'visibleSpaces'.
 --
-displayLineError :: Text -> LineError -> Text
-displayLineError fname (LineError i l) = Text.concat
+displayLineError :: Builder -> LineError -> Builder
+displayLineError fname (LineError i l) = mconcat
   [ fname
-  , ":"
-  , Text.pack $ show i
-  , ": "
+  , TextBuilder.singleton ':'
+  , TextBuilder.decimal i
+  , TextBuilder.singleton ':'
+  , TextBuilder.singleton ' '
   , visibleSpaces l
+  , TextBuilder.singleton '\n'
   ]
+{-# INLINABLE displayLineError #-}
 
 -- | Replace spaces and tabs with visible characters for presentation purposes.
 --   Space turns into '·' and tab into '<TAB>'.
 --
-visibleSpaces :: Text -> Text
+visibleSpaces :: Text -> Builder
 visibleSpaces s
-  | Text.null s = "<NEWLINE>"
-  | otherwise = flip Text.concatMap s $ \case
-      '\t' -> "<TAB>"
-      ' '  -> "·"
-      c    -> Text.pack [c]
+  | Text.null s = TextBuilder.fromText "<NEWLINE>"
+  | otherwise = fold (TextBuilder.fromText "") s $ \c b -> (case c of
+      '\t' -> TextBuilder.fromText "<TAB>"
+      ' '  -> TextBuilder.singleton '·'
+      _    -> TextBuilder.singleton c) <> b
+  where
+    fold b t f = Text.foldr f b t
+{-# INLINE visibleSpaces #-}

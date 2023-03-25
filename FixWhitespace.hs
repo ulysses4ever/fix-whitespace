@@ -6,9 +6,12 @@ module Main where
 
 import           Control.Monad                ( unless, when )
 
-import           Data.List.Extra              ( nubOrd )
+import           Data.List.Extra              ( nubOrd, mconcatMap )
 import qualified Data.Text                    as Text
 import qualified Data.Text.IO                 as Text {- Strict IO -}
+import qualified Data.Text.Lazy               as LText
+import qualified Data.Text.Lazy.IO            as LText
+import qualified Data.Text.Lazy.Builder       as TextBuilder
 import           Data.Version                 ( showVersion )
 
 import           System.Console.GetOpt        ( OptDescr(Option), ArgDescr(NoArg, ReqArg), ArgOrder(Permute), getOpt, usageInfo )
@@ -202,18 +205,8 @@ main = do
 fix :: Mode -> Verbose -> TabSize -> FilePath -> IO Bool
 fix mode verbose tabSize f = do
   s <- Text.readFile f
-  pure (CheckViolation s (buildVs s))
-    >>= \case
 
-    CheckViolation s vs ->  do
-      Text.hPutStrLn stderr (msg vs)
-      when (mode == Fix) $
-        withFile f WriteMode $ \h -> do
-          hSetEncoding h utf8
-          Text.hPutStr h s
-      return True
-
-  where
+  let
     buildVs = zipWith LineError [1..] . Text.lines
     msg vs
       | mode == Fix =
@@ -222,6 +215,21 @@ fix mode verbose tabSize f = do
       | otherwise =
         "[ Violation detected ] " <> ft <>
         (if not verbose then "" else
-           ":\n" <> Text.unlines (map (displayLineError ft) vs))
+           ":\n" <> TextBuilder.toLazyTextWith bufLen (mconcatMap (displayLineError ftb) vs))
 
-    ft = Text.pack f
+    ft = LText.pack f
+    ftb = TextBuilder.fromLazyText ft
+    bufLen = let len = Text.length s in len + len `div` 2
+
+  pure (CheckViolation s (buildVs s))
+    >>= \case
+
+    CheckViolation s vs ->  do
+      LText.hPutStrLn stderr (msg vs)
+      when (mode == Fix) $
+        withFile f WriteMode $ \h -> do
+          hSetEncoding h utf8
+          Text.hPutStr h s
+      return True
+
+  where
